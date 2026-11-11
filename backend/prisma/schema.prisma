@@ -1,0 +1,89 @@
+// BalanceVault Prisma Schema
+// Portable between PostgreSQL (Neon / Production) and SQLite (Local Zero-Config Dev)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String             @id @default(uuid())
+  email        String             @unique
+  passwordHash String
+  role         String             @default("ACCOUNT_HOLDER") // "ACCOUNT_HOLDER" | "ADMIN"
+  status       String             @default("PENDING_ONBOARDING") // "ACTIVE" | "PENDING_ONBOARDING" | "SUSPENDED"
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  onboarding   OnboardingProfile?
+  account      Account?
+}
+
+model OnboardingProfile {
+  id                   String    @id @default(uuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legalFullName        String
+  entityType           String    @default("INDIVIDUAL") // "INDIVIDUAL" | "BUSINESS"
+  jurisdiction         String    @default("US")
+  taxIdMasked          String    // e.g. "XXX-XX-4819" (Synthetic data only)
+  expectedAnnualVolume String    @default("$10,000 - $50,000")
+  status               String    @default("DRAFT") // "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED"
+  reviewerNotes        String?
+  submittedAt          DateTime?
+  reviewedAt           DateTime?
+  reviewerId           String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model Account {
+  id            String        @id @default(uuid())
+  userId        String        @unique
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountNumber String        @unique
+  currency      String        @default("USD")
+  balance       Float         @default(0.0)
+  status        String        @default("ACTIVE") // "ACTIVE" | "FROZEN" | "CLOSED"
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  ledgerEntries LedgerEntry[]
+}
+
+model LedgerEntry {
+  id                  String   @id @default(uuid())
+  accountId           String
+  account             Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  entryType           String   // "CREDIT" | "DEBIT"
+  amount              Float
+  balanceAfter        Float
+  reference           String   // "INITIAL_DEMO_GRANT" | "P2P_TRANSFER" | "ADJUSTMENT"
+  counterpartyAccount String?
+  notes               String
+  createdAt           DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  timestamp  DateTime @default(now())
+  actorId    String?
+  actorEmail String
+  actorRole  String
+  action     String   // "AUTH_LOGIN" | "AUTH_REGISTER" | "ADMIN_BOOTSTRAP" | "ONBOARDING_SUBMIT" | "ONBOARDING_DECISION" | "TRANSFER_EXECUTE"
+  targetType String   // "USER" | "ONBOARDING" | "ACCOUNT" | "SYSTEM"
+  targetId   String
+  outcome    String   // "SUCCESS" | "FAILURE" | "DENIED"
+  ipAddress  String
+  userAgent  String
+  metadata   String   // JSON string with rich context & diffs
+}
+
+model SystemBootstrap {
+  id             String    @id @default(uuid())
+  isBootstrapped Boolean   @default(false)
+  bootstrappedAt DateTime?
+  adminUserId    String?
+}

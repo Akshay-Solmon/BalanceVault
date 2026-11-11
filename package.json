@@ -1,0 +1,31 @@
+{
+  "name": "balancevault-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BalanceVault: Money movement with a ledger you can prove. Demonstration build.",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev": "npm --prefix backend run dev",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "test": "node scripts/test_e2e.js",
+    "bootstrap:admin": "node scripts/verify_bootstrap.js",
+    "db:migrate": "npm --prefix backend run db:migrate",
+    "db:generate": "npm --prefix backend run db:generate",
+    "db:seed": "npm --prefix backend run db:seed"
+  },
+  "keywords": [
+    "fintech",
+    "ledger",
+    "audit-trail",
+    "rbac",
+    "synthetic-data",
+    "neon-postgres"
+  ],
+  "author": "Antigravity Pair",
+  "license": "UNLICENSED"
+}
