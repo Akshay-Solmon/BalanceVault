@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../api/client';
-import { Activity, Database, Server, Cpu, ShieldCheck, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Vault3DScene } from '../components/Vault3DScene';
+import { Topology3DView } from '../components/Topology3DView';
+import { Activity, Database, Server, Cpu, ShieldCheck, RefreshCw, CheckCircle2, AlertTriangle, Layers } from 'lucide-react';
 
 interface HealthData {
   status: string;
@@ -40,8 +42,8 @@ export const SystemHealthPage: React.FC = () => {
   }, []);
 
   return (
-    <div style={{ maxWidth: '800px', margin: '2rem auto', padding: '0 1.5rem' }}>
-      <div className="card">
+    <div style={{ maxWidth: '1050px', margin: '2rem auto', padding: '0 1.5rem' }}>
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
             <Activity size={22} color="#38bdf8" />
@@ -60,58 +62,75 @@ export const SystemHealthPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Status Indicators Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-          {/* Liveness Probe */}
-          <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', padding: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Server size={16} color="#38bdf8" />
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc' }}>Liveness (/health)</span>
-              </div>
-              <span className={`badge ${health?.status === 'UP' ? 'badge-green' : 'badge-red'}`}>
-                {health?.status || 'UNKNOWN'}
-              </span>
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-              Uptime: <code className="font-mono" style={{ color: '#38bdf8' }}>{health?.uptimeSeconds || 0}s</code>
-            </div>
+        {/* 3D Vault Core + Live Probes Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '1.25rem',
+          marginBottom: '1.5rem',
+        }}>
+          {/* 3D Live Vault Mesh */}
+          <div>
+            <Vault3DScene
+              status={ready?.dependencies?.database?.status === 'CONNECTED' ? 'ACTIVE' : 'LOCKED'}
+              size="compact"
+              interactive={true}
+            />
           </div>
 
-          {/* Readiness Probe */}
-          <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', padding: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Cpu size={16} color="#38bdf8" />
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc' }}>Readiness (/ready)</span>
+          {/* Metric Probes */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', justifyContent: 'space-between' }}>
+            {/* Liveness Probe */}
+            <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', padding: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Server size={16} color="#38bdf8" />
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc' }}>Liveness (/health)</span>
+                </div>
+                <span className={`badge ${health?.status === 'UP' ? 'badge-green' : 'badge-red'}`}>
+                  {health?.status || 'UNKNOWN'}
+                </span>
               </div>
-              <span className={`badge ${ready?.status === 'READY' ? 'badge-green' : 'badge-amber'}`}>
-                {ready?.status || 'UNKNOWN'}
-              </span>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                Process Uptime: <code className="font-mono" style={{ color: '#38bdf8' }}>{health?.uptimeSeconds || 0}s</code>
+              </div>
             </div>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-              Subsystems evaluated: <code className="font-mono">2 Services</code>
-            </div>
-          </div>
 
-          {/* Database Dependency */}
-          <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', padding: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Database size={16} color="#38bdf8" />
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc' }}>Postgres / Storage</span>
+            {/* Readiness Probe */}
+            <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', padding: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Cpu size={16} color="#38bdf8" />
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc' }}>Readiness (/ready)</span>
+                </div>
+                <span className={`badge ${ready?.status === 'READY' ? 'badge-green' : 'badge-amber'}`}>
+                  {ready?.status || 'UNKNOWN'}
+                </span>
               </div>
-              <span className={`badge ${ready?.dependencies?.database?.status === 'CONNECTED' ? 'badge-green' : 'badge-red'}`}>
-                {ready?.dependencies?.database?.status || 'DISCONNECTED'}
-              </span>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                Dependencies: Database ({ready?.dependencies?.database?.status}) • Cache ({ready?.dependencies?.redisCache?.status})
+              </div>
             </div>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-              Primary relational store & migrations
+
+            {/* Primary Database Connection */}
+            <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', padding: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Database size={16} color="#38bdf8" />
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc' }}>Postgres Relational Store</span>
+                </div>
+                <span className={`badge ${ready?.dependencies?.database?.status === 'CONNECTED' ? 'badge-green' : 'badge-red'}`}>
+                  {ready?.dependencies?.database?.status || 'DISCONNECTED'}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                Prisma ORM with append-only audit enforcement
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Detailed Dependency Breakdown */}
+        {/* Subsystem Specifications */}
         <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '8px', padding: '1.25rem' }}>
           <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.75rem' }}>
             Subsystem Architecture & Rate Limiting Strategy
@@ -138,6 +157,9 @@ export const SystemHealthPage: React.FC = () => {
           </ul>
         </div>
       </div>
+
+      {/* 3D Database Role Architecture & Security Topology */}
+      <Topology3DView />
     </div>
   );
 };

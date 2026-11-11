@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../api/client';
+import { Vault3DScene } from '../components/Vault3DScene';
 import { ShieldAlert, CheckCircle2, Lock, Key, ArrowRight, Database, Terminal } from 'lucide-react';
 
 interface BootstrapPageProps {
@@ -51,7 +52,7 @@ export const BootstrapPage: React.FC<BootstrapPageProps> = ({ onSuccess, onBackT
   };
 
   return (
-    <div style={{ maxWidth: '640px', margin: '2.5rem auto', padding: '0 1rem' }}>
+    <div style={{ maxWidth: '680px', margin: '2.5rem auto', padding: '0 1rem' }}>
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
           <div style={{
@@ -70,6 +71,15 @@ export const BootstrapPage: React.FC<BootstrapPageProps> = ({ onSuccess, onBackT
               FR-12: Controlled first admin initialization via restricted bootstrap operator role
             </p>
           </div>
+        </div>
+
+        {/* 3D Cryptographic Vault Core Visualizer */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <Vault3DScene
+            status={bootStatus?.isBootstrapped ? 'ACTIVE' : 'LOCKED'}
+            size="compact"
+            interactive={true}
+          />
         </div>
 
         {/* Database Status Alert */}
