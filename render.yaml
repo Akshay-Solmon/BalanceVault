@@ -1,8 +1,10 @@
 services:
   - type: web
     name: balancevault-backend
-    runtime: docker
-    dockerfilePath: ./Dockerfile
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && npm start
     plan: starter
     envVars:
       - key: DATABASE_URL
