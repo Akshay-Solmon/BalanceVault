@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../api/client';
-import { Vault3DScene } from '../components/Vault3DScene';
-import { ShieldAlert, CheckCircle2, Lock, Key, ArrowRight, Database, Terminal } from 'lucide-react';
+import { VaultHero3D } from '../components/3d/VaultHero3D';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Badge } from '../components/ui/Badge';
+import { ShieldAlert, CheckCircle2, Lock, Key, ArrowRight } from 'lucide-react';
 
-interface BootstrapPageProps {
+export interface BootstrapPageProps {
   onSuccess: () => void;
   onBackToLogin: () => void;
 }
@@ -52,175 +56,85 @@ export const BootstrapPage: React.FC<BootstrapPageProps> = ({ onSuccess, onBackT
   };
 
   return (
-    <div style={{ maxWidth: '680px', margin: '2.5rem auto', padding: '0 1rem' }}>
-      <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-          <div style={{
-            background: 'rgba(245, 158, 11, 0.15)',
-            padding: '0.625rem',
-            borderRadius: '10px',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-          }}>
-            <Lock size={24} color="#f59e0b" />
-          </div>
-          <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc' }}>
-              First-Administrator Bootstrap (M6 / M7)
-            </h2>
-            <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-              FR-12: Controlled first admin initialization via restricted bootstrap operator role
-            </p>
-          </div>
-        </div>
+    <div style={{ maxWidth: '640px', margin: '2rem auto', padding: '0 1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+        <VaultHero3D size={200} />
+      </div>
 
-        {/* 3D Cryptographic Vault Core Visualizer */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <Vault3DScene
-            status={bootStatus?.isBootstrapped ? 'ACTIVE' : 'LOCKED'}
-            size="compact"
-            interactive={true}
-          />
-        </div>
-
-        {/* Database Status Alert */}
-        <div style={{
-          backgroundColor: '#090d16',
-          border: '1px solid #1e293b',
-          borderRadius: '8px',
-          padding: '1rem',
-          marginBottom: '1.5rem',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1' }}>
-              Platform Bootstrap State:
-            </span>
-            {loading ? (
-              <span className="badge badge-amber">Checking...</span>
-            ) : bootStatus?.isBootstrapped ? (
-              <span className="badge badge-green">
-                <CheckCircle2 size={12} /> Bootstrapped ({bootStatus.adminCount} Admin)
-              </span>
-            ) : (
-              <span className="badge badge-amber">
-                <ShieldAlert size={12} /> Pending First Admin
-              </span>
-            )}
+      <Card variant="elevated" style={{ padding: '2rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'inline-flex', padding: '0.5rem', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(79, 140, 255, 0.1)', marginBottom: '0.5rem' }}>
+            <Key size={24} color="var(--color-primary)" />
           </div>
-          <p style={{ fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.4 }}>
-            In managed PostgreSQL environments such as Neon, role administration is separated from schema ownership to prevent <code style={{ color: '#38bdf8' }}>SQLSTATE 42501</code>. The bootstrap channel can only be executed once.
+          <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+            One-Time Administrator Bootstrap
+          </h1>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+            FR-1: Initializes the root administrator identity for fresh deployments.
           </p>
         </div>
 
         {bootStatus?.isBootstrapped ? (
-          <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-            <div style={{
-              background: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid #10b981',
-              borderRadius: '8px',
-              padding: '1rem',
-              color: '#6ee7b7',
-              fontSize: '0.9rem',
-              marginBottom: '1.25rem',
-            }}>
-              <CheckCircle2 size={24} style={{ margin: '0 auto 0.5rem' }} />
-              <strong>Bootstrap Complete!</strong> Platform administrator already exists. Subsequent administrators must be managed by authenticated admins.
-            </div>
-            <button onClick={onBackToLogin} className="btn-primary" style={{ margin: '0 auto' }}>
-              Proceed to Sign In <ArrowRight size={16} />
-            </button>
+          <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+            <Badge variant="credit" icon={<CheckCircle2 size={14} />} size="md" style={{ marginBottom: '1rem' }}>
+              System Already Bootstrapped
+            </Badge>
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1.5rem' }}>
+              The initial administrator already exists. Bootstrap endpoints are permanently locked to prevent unauthorized privilege escalation.
+            </p>
+            <Button variant="primary" onClick={onBackToLogin}>
+              Return to Sign In
+            </Button>
           </div>
         ) : (
           <form onSubmit={handleBootstrap} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {error && (
-              <div style={{
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid #ef4444',
-                padding: '0.75rem',
-                borderRadius: '8px',
-                color: '#fca5a5',
-                fontSize: '0.85rem',
-              }}>
+              <div style={{ color: 'var(--color-danger)', fontSize: '0.8125rem', backgroundColor: 'rgba(255, 92, 122, 0.1)', padding: '0.75rem', borderRadius: 'var(--radius-md)' }}>
                 {error}
               </div>
             )}
-
             {successMsg && (
-              <div style={{
-                background: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid #10b981',
-                padding: '0.75rem',
-                borderRadius: '8px',
-                color: '#6ee7b7',
-                fontSize: '0.85rem',
-              }}>
+              <div style={{ color: 'var(--color-secondary)', fontSize: '0.8125rem', backgroundColor: 'rgba(34, 211, 183, 0.1)', padding: '0.75rem', borderRadius: 'var(--radius-md)' }}>
                 {successMsg}
               </div>
             )}
 
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.35rem' }}>
-                Bootstrap Operator Token (Confidential Key)
-              </label>
-              <input
-                type="text"
-                required
-                value={bootstrapToken}
-                onChange={(e) => setBootstrapToken(e.target.value)}
-                className="input-field font-mono"
-              />
-              <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                Authorized secret configured on server environment (<code style={{ color: '#94a3b8' }}>BOOTSTRAP_TOKEN</code>)
-              </span>
-            </div>
+            <Input
+              label="Root Admin Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
 
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.35rem' }}>
-                Root Administrator Email
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input-field"
-              />
-            </div>
+            <Input
+              label="Admin Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
 
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.35rem' }}>
-                Root Administrator Password
-              </label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-field"
-              />
-            </div>
+            <Input
+              label="Secret Bootstrap Token"
+              type="password"
+              value={bootstrapToken}
+              onChange={(e) => setBootstrapToken(e.target.value)}
+              isMonospace
+              required
+            />
 
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="btn-primary"
-                style={{ flex: 1 }}
-              >
-                {submitting ? 'Executing Function...' : 'Execute Bootstrap Function'}
-                <ArrowRight size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={onBackToLogin}
-                className="btn-secondary"
-              >
-                Back to Login
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
+              <Button type="button" variant="secondary" onClick={onBackToLogin}>
+                Back
+              </Button>
+              <Button type="submit" variant="primary" isLoading={submitting} loadingText="Bootstrapping...">
+                Execute Bootstrap
+              </Button>
             </div>
           </form>
         )}
-      </div>
+      </Card>
     </div>
   );
 };

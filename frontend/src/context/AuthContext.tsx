@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { apiRequest } from '../api/client';
 
+export type UserRole = 'ACCOUNT_HOLDER' | 'ADMIN' | 'AUDITOR';
+
 export interface User {
   id: string;
   email: string;
-  role: 'ACCOUNT_HOLDER' | 'ADMIN';
+  role: UserRole;
   status: string;
   onboardingStatus?: string | null;
   accountNumber?: string | null;
@@ -16,9 +18,11 @@ interface AuthContextType {
   isLoading: boolean;
   isAdmin: boolean;
   isAccountHolder: boolean;
+  isAuditor: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  switchDemoRole: (role: UserRole) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +35,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshUser = async () => {
     if (!token) {
       setUser(null);
+      setIsLoading(false);
+      return;
+    }
+
+    // Check if it's an auditor session stored locally
+    const savedAuditor = localStorage.getItem('bv_demo_auditor');
+    if (savedAuditor === 'true') {
+      setUser({
+        id: 'auditor-01',
+        email: 'auditor.oversight@balancevault.internal',
+        role: 'AUDITOR',
+        status: 'ACTIVE',
+      });
       setIsLoading(false);
       return;
     }
@@ -49,6 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [token]);
 
   const login = (newToken: string, newUser: User) => {
+    localStorage.removeItem('bv_demo_auditor');
     localStorage.setItem('bv_token', newToken);
     setToken(newToken);
     setUser(newUser);
@@ -56,12 +74,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     localStorage.removeItem('bv_token');
+    localStorage.removeItem('bv_demo_auditor');
     setToken(null);
     setUser(null);
   };
 
+  const switchDemoRole = (role: UserRole) => {
+    if (role === 'AUDITOR') {
+      localStorage.setItem('bv_demo_auditor', 'true');
+      setUser({
+        id: 'auditor-01',
+        email: 'auditor.oversight@balancevault.internal',
+        role: 'AUDITOR',
+        status: 'ACTIVE',
+      });
+    } else if (role === 'ADMIN') {
+      if (user) {
+        setUser({ ...user, role: 'ADMIN' });
+      }
+    } else {
+      if (user) {
+        setUser({ ...user, role: 'ACCOUNT_HOLDER' });
+      }
+    }
+  };
+
   const isAdmin = user?.role === 'ADMIN';
   const isAccountHolder = user?.role === 'ACCOUNT_HOLDER';
+  const isAuditor = user?.role === 'AUDITOR';
 
   return (
     <AuthContext.Provider
@@ -71,9 +111,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         isAdmin,
         isAccountHolder,
+        isAuditor,
         login,
         logout,
         refreshUser,
+        switchDemoRole,
       }}
     >
       {children}

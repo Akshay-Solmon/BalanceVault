@@ -1,23 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../api/client';
-import { Interactive3DCard } from '../components/Interactive3DCard';
-import { Vault3DScene } from '../components/Vault3DScene';
-import { Ledger3DVisualizer } from '../components/Ledger3DVisualizer';
+import { floatToPaise } from '../utils/money';
+import { AccountCard3D } from '../components/3d/AccountCard3D';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
+import { Table, Column } from '../components/ui/Table';
+import { Skeleton } from '../components/ui/Skeleton';
+import { ErrorState } from '../components/ui/ErrorState';
+import { MoneyDisplay } from '../components/money/MoneyDisplay';
 import { 
-  Wallet, 
-  Send, 
-  ArrowUpRight, 
+  ArrowLeftRight, 
   ArrowDownLeft, 
-  History, 
-  CheckCircle2, 
+  ArrowUpRight, 
+  ShieldCheck, 
+  RefreshCw, 
   AlertCircle, 
-  RefreshCw,
-  Copy,
-  ShieldCheck,
-  Clock,
-  Box,
-  Table
+  Wallet, 
+  Clock, 
+  FileText,
+  Activity,
+  Lock
 } from 'lucide-react';
 
 interface LedgerEntry {
@@ -40,32 +44,37 @@ interface AccountData {
   ledgerEntries: LedgerEntry[];
 }
 
-export const DashboardPage: React.FC<{ onNavigateToOnboarding: () => void }> = ({ onNavigateToOnboarding }) => {
-  const { user, refreshUser } = useAuth();
+export interface DashboardPageProps {
+  onNavigateToMoneyMovements?: () => void;
+  onNavigateToStatement?: () => void;
+  onNavigateToOnboarding?: () => void;
+}
+
+export const DashboardPage: React.FC<DashboardPageProps> = ({
+  onNavigateToMoneyMovements,
+  onNavigateToStatement,
+  onNavigateToOnboarding,
+}) => {
+  const { user, isAuditor } = useAuth();
   const [account, setAccount] = useState<AccountData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Transfer Form State
-  const [recipient, setRecipient] = useState('');
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
-  const [transferMsg, setTransferMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [isTransferring, setIsTransferring] = useState(false);
-
-  // View mode for ledger: '3d' or 'table'
-  const [ledgerViewMode, setLedgerViewMode] = useState<'3d' | 'table'>('3d');
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchAccount = async () => {
     setLoading(true);
-    setError(null);
+    setErrorStatus(null);
+    setErrorMessage(null);
+
     const res = await apiRequest<{ account: AccountData }>('/api/accounts/me');
     if (res.data?.account) {
       setAccount(res.data.account);
     } else if (res.status === 404) {
-      setError('ONBOARDING_REQUIRED');
+      setErrorStatus(404);
+      setErrorMessage(res.error || 'No active ledger account provisioned. Onboarding approval required.');
     } else {
-      setError(res.error || 'Failed to load ledger account.');
+      setErrorStatus(res.status || 500);
+      setErrorMessage(res.error || 'Failed to load ledger balance.');
     }
     setLoading(false);
   };
@@ -74,335 +83,299 @@ export const DashboardPage: React.FC<{ onNavigateToOnboarding: () => void }> = (
     fetchAccount();
   }, []);
 
-  const handleTransfer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setTransferMsg(null);
-    setIsTransferring(true);
+  // Compute integer paise values
+  const balancePaise = account ? floatToPaise(account.balance) : 0;
+  const entries = account?.ledgerEntries || [];
 
-    const res = await apiRequest('/api/accounts/transfer', {
-      method: 'POST',
-      body: JSON.stringify({
-        recipientAccountNumber: recipient,
-        amount: parseFloat(amount),
-        note,
-      }),
-    });
-
-    if (res.error) {
-      setTransferMsg({ type: 'error', text: res.error });
-    } else {
-      setTransferMsg({ type: 'success', text: 'Transfer successfully posted to ledger.' });
-      setRecipient('');
-      setAmount('');
-      setNote('');
-      await fetchAccount();
-      await refreshUser();
-    }
-    setIsTransferring(false);
-  };
+  const columns: Column<LedgerEntry>[] = [
+    {
+      key: 'type',
+      header: 'Type',
+      width: '120px',
+      render: (entry) => {
+        const isCredit = entry.entryType === 'CREDIT';
+        return (
+          <Badge
+            variant={isCredit ? 'credit' : 'debit'}
+            icon={isCredit ? <ArrowDownLeft size={13} /> : <ArrowUpRight size={13} />}
+          >
+            {entry.entryType}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: 'reference',
+      header: 'Reference & Counterparty',
+      render: (entry) => (
+        <div>
+          <div style={{ fontWeight: 600, fontSize: '0.8125rem' }}>{entry.reference}</div>
+          {entry.counterpartyAccount && (
+            <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
+              Acc: {entry.counterpartyAccount}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'createdAt',
+      header: 'Timestamp',
+      width: '180px',
+      render: (entry) => (
+        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+          {new Date(entry.createdAt).toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      align: 'right',
+      width: '140px',
+      render: (entry) => (
+        <MoneyDisplay
+          paise={floatToPaise(entry.amount)}
+          variant={entry.entryType === 'CREDIT' ? 'credit' : 'debit'}
+          showSign
+          size="sm"
+        />
+      ),
+    },
+    {
+      key: 'balanceAfter',
+      header: 'Post Balance',
+      align: 'right',
+      width: '140px',
+      render: (entry) => (
+        <MoneyDisplay
+          paise={floatToPaise(entry.balanceAfter)}
+          variant="neutral"
+          size="sm"
+        />
+      ),
+    },
+  ];
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
-        <RefreshCw size={32} color="#38bdf8" className="animate-spin" style={{ margin: '0 auto 1rem' }} />
-        <p style={{ color: '#94a3b8' }}>Loading ledger state and 3D account models...</p>
+      <div style={{ maxWidth: '1180px', margin: '2rem auto', padding: '0 1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+          <Skeleton height="240px" borderRadius="var(--radius-lg)" />
+          <Skeleton height="240px" borderRadius="var(--radius-lg)" />
+        </div>
+        <Skeleton height="320px" borderRadius="var(--radius-lg)" />
       </div>
     );
   }
 
-  // If user has not completed onboarding
-  if (error === 'ONBOARDING_REQUIRED') {
+  if (errorStatus === 404 && onNavigateToOnboarding) {
     return (
-      <div style={{ maxWidth: '680px', margin: '3rem auto', padding: '0 1rem' }}>
-        <div className="card" style={{ textAlign: 'center', padding: '2.5rem' }}>
-          <div style={{
-            background: 'rgba(245, 158, 11, 0.15)',
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 1rem',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-          }}>
-            <Clock size={24} color="#f59e0b" />
+      <div style={{ maxWidth: '640px', margin: '3rem auto', padding: '0 1.5rem' }}>
+        <Card variant="elevated" style={{ textAlign: 'center', padding: '2.5rem 2rem' }}>
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(245, 184, 75, 0.15)',
+              border: '1px solid var(--color-warning)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.25rem',
+            }}
+          >
+            <Clock size={28} color="var(--color-warning)" />
           </div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc', marginBottom: '0.5rem' }}>
-            Ledger Account Pending Onboarding Review
+          <h2 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: '0.5rem' }}>
+            Account Provisioning Pending
           </h2>
-          <p style={{ fontSize: '0.875rem', color: '#94a3b8', maxWidth: '480px', margin: '0 auto 1.5rem', lineHeight: 1.5 }}>
-            Under BalanceVault's auditable compliance model, accounts and ledger books are provisioned immediately upon administrator review of your onboarding profile.
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+            Your account requires onboarding approval before double-entry ledger accounts are activated. Administrators can approve pending profiles in the Admin Console.
           </p>
-          <div style={{ display: 'inline-flex', gap: '0.75rem' }}>
-            <button onClick={onNavigateToOnboarding} className="btn-primary">
-              View & Submit Onboarding
-            </button>
-            <button onClick={fetchAccount} className="btn-secondary">
-              <RefreshCw size={14} /> Refresh Status
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
+            <Button variant="primary" onClick={onNavigateToOnboarding} leftIcon={<FileText size={16} />}>
+              Review Onboarding Status
+            </Button>
+            <Button variant="secondary" onClick={fetchAccount} leftIcon={<RefreshCw size={16} />}>
+              Check Status
+            </Button>
           </div>
-        </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (errorMessage && !account) {
+    return (
+      <div style={{ maxWidth: '720px', margin: '3rem auto', padding: '0 1.5rem' }}>
+        <ErrorState
+          status={errorStatus || 500}
+          message={errorMessage}
+          onRetry={fetchAccount}
+        />
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: '1180px', margin: '2rem auto', padding: '0 1.5rem' }}>
-      {/* 3D Showcase Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-        gap: '1.5rem',
-        marginBottom: '2rem',
-        alignItems: 'stretch',
-      }}>
-        {/* Left: Interactive 3D Holographic Card */}
+    <div style={{ maxWidth: '1240px', margin: '2rem auto', padding: '0 1.5rem' }}>
+      {/* Page Header */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '1.75rem',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
         <div>
-          <Interactive3DCard
-            accountNumber={account?.accountNumber || 'BV-0000-0000'}
-            balance={account?.balance || 0}
-            currency={account?.currency || 'USD'}
-            cardHolderName={user?.email || 'SYNTHETIC ACCOUNT HOLDER'}
-            status={account?.status || 'ACTIVE'}
-          />
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+            Account Overview
+          </h1>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
+            Real-time provable balance enforced by database locks and append-only cryptographic ledger.
+          </p>
         </div>
 
-        {/* Middle: Live 3D Vault Core WebGL Scene */}
-        <div>
-          <Vault3DScene
-            status={account?.status === 'ACTIVE' ? 'ACTIVE' : 'LOCKED'}
-            size="compact"
-            interactive={true}
-          />
-        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Button variant="secondary" size="sm" onClick={fetchAccount} leftIcon={<RefreshCw size={14} />}>
+            Refresh
+          </Button>
 
-        {/* Right: Transfer Synthetic Funds Card */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-              <Send size={18} color="#38bdf8" />
-              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc' }}>
-                Auditable P2P Money Movement
-              </h3>
-            </div>
-
-            {transferMsg && (
-              <div style={{
-                padding: '0.5rem 0.75rem',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                marginBottom: '0.75rem',
-                background: transferMsg.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                color: transferMsg.type === 'success' ? '#34d399' : '#f87171',
-                border: `1px solid ${transferMsg.type === 'success' ? '#10b981' : '#ef4444'}`,
-              }}>
-                {transferMsg.text}
-              </div>
-            )}
-
-            <form onSubmit={handleTransfer} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>
-                  Recipient Account Number
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. BV-4902-8811"
-                  value={recipient}
-                  onChange={(e) => setRecipient(e.target.value)}
-                  required
-                  className="input-field font-mono"
-                  style={{ fontSize: '0.8rem' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>
-                  Transfer Amount ($ USD)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  required
-                  className="input-field font-mono"
-                  style={{ fontSize: '0.8rem' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>
-                  Audit Reference Note (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Demonstration transfer"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  className="input-field"
-                  style={{ fontSize: '0.8rem' }}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isTransferring}
-                className="btn-primary"
-                style={{ marginTop: '0.5rem', width: '100%' }}
-              >
-                {isTransferring ? 'Settling to Ledger...' : 'Post Auditable Transfer'}
-              </button>
-            </form>
-          </div>
-
-          <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '1rem', borderTop: '1px solid #1e293b', paddingTop: '0.5rem' }}>
-            Atomic double-entry commit with cryptographic ledger update.
-          </div>
+          {!isAuditor && onNavigateToMoneyMovements && (
+            <Button variant="primary" size="sm" onClick={onNavigateToMoneyMovements} leftIcon={<ArrowLeftRight size={14} />}>
+              Move Money
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Ledger Section with 3D / 2D Toggle */}
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-            <History size={20} color="#38bdf8" />
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#f8fafc' }}>
-                Double-Entry Account Ledger
-              </h3>
-              <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                Provable audit history. Entries cannot be altered or deleted.
-              </p>
-            </div>
-          </div>
+      {/* Top Grid: 3D Account Card + High-Level Metrics */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '1.5rem',
+          marginBottom: '2rem',
+          alignItems: 'stretch',
+        }}
+      >
+        {/* Left: 3D Interactive Account Card */}
+        <AccountCard3D
+          accountNumber={account?.accountNumber || 'BV-UNASSIGNED'}
+          balancePaise={balancePaise}
+          cardHolderName={user?.email || 'SYNTHETIC ACCOUNT HOLDER'}
+          status={account?.status || 'ACTIVE'}
+        />
 
+        {/* Right: Quick Ledger Security & Operations Panel */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', justifyContent: 'space-between' }}>
+          {/* Quick Metrics Card */}
+          <Card variant="default" style={{ padding: '1.25rem' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.75rem' }}>
+              Ledger Protection Status
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-surface-elevated)', borderRadius: 'var(--radius-md)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Balance Floor Rule</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-secondary)', marginTop: '0.2rem' }}>
+                  ₹0.00 Floor (Strict)
+                </div>
+              </div>
+
+              <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-surface-elevated)', borderRadius: 'var(--radius-md)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Concurrency Lock</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-primary)', marginTop: '0.2rem' }}>
+                  SELECT FOR UPDATE
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Quick Action Bar (Disabled if Auditor) */}
+          <Card variant="elevated" style={{ padding: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                Quick Operations
+              </span>
+              {isAuditor && (
+                <Badge variant="readonly" size="sm">
+                  Write Actions Blocked
+                </Badge>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={isAuditor}
+                onClick={onNavigateToMoneyMovements}
+                leftIcon={<ArrowDownLeft size={14} color="var(--color-secondary)" />}
+              >
+                Deposit
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={isAuditor}
+                onClick={onNavigateToMoneyMovements}
+                leftIcon={<ArrowUpRight size={14} color="var(--color-danger)" />}
+              >
+                Withdraw
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={isAuditor}
+                onClick={onNavigateToMoneyMovements}
+                leftIcon={<ArrowLeftRight size={14} />}
+              >
+                Transfer
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      {/* Recent Activity Table */}
+      <Card variant="default">
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '1rem',
+            paddingBottom: '0.75rem',
+            borderBottom: '1px solid var(--color-surface-border)',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {/* View Mode Toggle Button */}
-            <div style={{
-              display: 'flex',
-              background: '#090d16',
-              padding: '2px',
-              borderRadius: '6px',
-              border: '1px solid #1e293b',
-            }}>
-              <button
-                type="button"
-                onClick={() => setLedgerViewMode('3d')}
-                style={{
-                  padding: '0.3rem 0.6rem',
-                  borderRadius: '4px',
-                  border: 'none',
-                  background: ledgerViewMode === '3d' ? '#1e293b' : 'transparent',
-                  color: ledgerViewMode === '3d' ? '#38bdf8' : '#94a3b8',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                <Box size={13} /> 3D Block Chain
-              </button>
-              <button
-                type="button"
-                onClick={() => setLedgerViewMode('table')}
-                style={{
-                  padding: '0.3rem 0.6rem',
-                  borderRadius: '4px',
-                  border: 'none',
-                  background: ledgerViewMode === 'table' ? '#1e293b' : 'transparent',
-                  color: ledgerViewMode === 'table' ? '#38bdf8' : '#94a3b8',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                <Table size={13} /> 2D Table
-              </button>
-            </div>
-
-            <button onClick={fetchAccount} className="btn-secondary" style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}>
-              <RefreshCw size={13} /> Refresh
-            </button>
+            <Activity size={18} color="var(--color-primary)" />
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+              Recent Ledger Postings
+            </h3>
           </div>
+
+          {onNavigateToStatement && (
+            <Button variant="ghost" size="sm" onClick={onNavigateToStatement} rightIcon={<FileText size={14} />}>
+              View Full Statement
+            </Button>
+          )}
         </div>
 
-        {/* 3D Ledger Block Explorer View */}
-        {ledgerViewMode === '3d' ? (
-          <Ledger3DVisualizer
-            entries={account?.ledgerEntries || []}
-            accountNumber={account?.accountNumber || ''}
-          />
-        ) : (
-          /* 2D Table View */
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date / Time</th>
-                  <th>Type</th>
-                  <th>Reference</th>
-                  <th>Counterparty</th>
-                  <th>Amount</th>
-                  <th>Balance After</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!account?.ledgerEntries || account.ledgerEntries.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', color: '#64748b', padding: '2rem' }}>
-                      No ledger transactions recorded yet.
-                    </td>
-                  </tr>
-                ) : (
-                  account.ledgerEntries.map((entry) => (
-                    <tr key={entry.id}>
-                      <td className="font-mono" style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                        {new Date(entry.createdAt).toLocaleString()}
-                      </td>
-                      <td>
-                        <span className={`badge ${entry.entryType === 'CREDIT' ? 'badge-green' : 'badge-red'}`}>
-                          {entry.entryType === 'CREDIT' ? (
-                            <><ArrowDownLeft size={11} /> CREDIT</>
-                          ) : (
-                            <><ArrowUpRight size={11} /> DEBIT</>
-                          )}
-                        </span>
-                      </td>
-                      <td className="font-mono" style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>
-                        {entry.reference}
-                      </td>
-                      <td className="font-mono" style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                        {entry.counterpartyAccount || '—'}
-                      </td>
-                      <td style={{
-                        fontWeight: 600,
-                        fontFamily: 'var(--font-mono)',
-                        color: entry.entryType === 'CREDIT' ? '#34d399' : '#f87171',
-                      }}>
-                        {entry.entryType === 'CREDIT' ? '+' : '-'}${entry.amount.toFixed(2)}
-                      </td>
-                      <td className="font-mono" style={{ fontWeight: 600, color: '#f8fafc' }}>
-                        ${entry.balanceAfter.toFixed(2)}
-                      </td>
-                      <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                        {entry.notes}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        <Table
+          columns={columns}
+          data={entries.slice(0, 8)}
+          rowKey={(r) => r.id}
+          emptyMessage="No ledger transactions have settled to this account yet."
+        />
+      </Card>
     </div>
   );
 };

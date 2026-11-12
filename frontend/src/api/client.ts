@@ -4,9 +4,13 @@ function getToken(): string | null {
   return localStorage.getItem('bv_token');
 }
 
+export interface ApiRequestOptions extends RequestInit {
+  idempotencyKey?: string;
+}
+
 export async function apiRequest<T = any>(
   path: string,
-  options: RequestInit = {}
+  options: ApiRequestOptions = {}
 ): Promise<{ data: T | null; error: string | null; status: number }> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -16,6 +20,10 @@ export async function apiRequest<T = any>(
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  if (options.idempotencyKey) {
+    headers['Idempotency-Key'] = options.idempotencyKey;
   }
 
   try {

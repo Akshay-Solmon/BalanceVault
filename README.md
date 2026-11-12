@@ -1,154 +1,149 @@
-# BalanceVault 🏛️
-**Money movement with a ledger you can prove.**  
-*Hackathon demonstration build. Synthetic data only. Not a production financial service and not for handling real funds.*
+# BalanceVault
 
-[![Status](https://img.shields.io/badge/Status-Implemented%20%26%20Verified-brightgreen)](#)
-[![Security](https://img.shields.io/badge/Security-RBAC%20%7C%20Least%20Privilege-blue)](#)
-[![Database](https://img.shields.io/badge/Postgres-Neon%20Compatible-00e599)](#)
+A modern fintech web app built with React, TypeScript, and Three.js. The frontend is deployed to **Vercel** and the backend runs on **Render**, backed by a **Neon PostgreSQL** database.
 
 ---
 
-## 1. Overview
-BalanceVault is a secure financial account management web application that combines **server-enforced role-based access control (RBAC)**, **structured onboarding workflows**, and an **append-only, provable double-entry audit ledger**.
-
-Every sensitive action is strictly attributable to an authenticated user, verified by their role on the backend, and permanently recorded in an immutable audit trail.
-
----
-
-## 2. Key Architecture & Features
-
-### 🔐 Security & Role-Based Access Control (FR-1, FR-2, FR-3, FR-4)
-- **Server-Side Enforcement**: All protected endpoints enforce identity and role middleware on the backend.
-- **Roles**:
-  - `ACCOUNT_HOLDER`: Registers, completes onboarding, views own ledger, transfers synthetic funds.
-  - `ADMIN`: Manages users, inspects & acts on onboarding applications, inspects filterable audit logs.
-  - `BOOTSTRAP_OPERATOR`: Restricted role used exclusively to initialize the first administrator.
-- **Fail-Closed Rate Limiting**: Redis-backed sliding window limiter with fail-closed policy on sensitive authentication routes (`/api/auth/*`, `/api/bootstrap/*`).
-
-### 🐘 PostgreSQL Least-Privilege & Neon Compatibility (FR-12, FR-14)
-In managed PostgreSQL environments like Neon, cloud tenant owner roles lack superuser privileges. Attempting to alter credentials or administer roles often throws `SQLSTATE 42501` (insufficient privilege).
-
-BalanceVault solves this through **`SECURITY DEFINER` function scoping**:
-1. **Schema Owner (`neondb_owner`)**: Owns tables, migrations, and the `bootstrap_first_admin` function.
-2. **Application Role (`bv_app_runtime`)**: Has `SELECT`, `INSERT`, `UPDATE` on operational tables, but has `REVOKE UPDATE, DELETE ON "AuditLog"` to guarantee append-only ledger integrity.
-3. **Bootstrap Operator Role (`bootstrap_operator`)**: Only has `GRANT EXECUTE ON FUNCTION bootstrap_first_admin(...)`. Cannot arbitrarily query or mutate user tables.
-
-See [`scripts/neon_bootstrap.sql`](file:///C:/Users/AKSHAY/.gemini/antigravity/scratch/balancevault/scripts/neon_bootstrap.sql) for the exact DDL.
-
-### 📝 Guided Onboarding Workflow (FR-6, FR-7, FR-8, FR-10)
-- Account holders advance through a defined state machine:
-  $$\text{DRAFT} \longrightarrow \text{SUBMITTED} \longrightarrow \text{UNDER\_REVIEW} \longrightarrow \text{APPROVED / REJECTED}$$
-- Administrator approval automatically provisions an active account number (e.g. `BV-1084-3912`) and credits an initial demonstration balance with an immutable ledger entry.
-
-### 📜 Provable Double-Entry Ledger & Audit Trail (FR-11, FR-13, FR-14, FR-15)
-- All money movement performs atomic debit and credit entries with balance-after checkpoints.
-- Audit entries record `actorId`, `actorEmail`, `actorRole`, `action`, `targetType`, `targetId`, `outcome`, `ipAddress`, `userAgent`, and contextual `metadata`.
+## Table of Contents
+- [Project Overview](#project-overview)
+- [Prerequisites](#prerequisites)
+- [Local Development](#local-development)
+- [Deployment Guide](#deployment-guide)
+  - [Frontend (Vercel)](#frontend-vercel)
+  - [Backend (Render)](#backend-render)
+  - [Neon PostgreSQL Setup](#neon-postgresql-setup)
+- [Environment Variables](#environment-variables)
+- [Scripts](#scripts)
+- [Folder Structure](#folder-structure)
+- [FAQ & Troubleshooting](#faq--troubleshooting)
 
 ---
 
-## 3. Project Structure
-
-```
-balancevault/
-├── PRD.md                         # Product Requirements Document
-├── package.json                   # Workspace root orchestration
-├── README.md                      # Documentation & Architecture
-├── scripts/
-│   ├── neon_bootstrap.sql         # Production Neon PostgreSQL role model & DDL
-│   ├── verify_bootstrap.js        # Milestone M6 & M7 CLI verification tool
-│   └── test_e2e.js                # Complete E2E integration test suite
-├── backend/                       # Node.js + Express + Prisma API
-│   ├── prisma/
-│   │   ├── schema.prisma          # Prisma schema (SQLite dev / PostgreSQL prod)
-│   │   └── schema.postgres.prisma # PostgreSQL/Neon schema
-│   └── src/
-│       ├── config.ts              # Environment configuration
-│       ├── db.ts                  # Prisma Client with append-only audit enforcement
-│       ├── redis.ts               # Redis client & in-memory fallback
-│       ├── middleware/            # Auth, RBAC, Rate Limiting, Audit Logger
-│       ├── routes/                # Health, Auth, Bootstrap, Onboarding, Accounts, Admin
-│       ├── seed.ts                # Demo data seeder
-│       └── server.ts              # Express server
-└── frontend/                      # React 18 + Vite + TypeScript UI
-    ├── src/
-    │   ├── api/client.ts          # Type-safe API client
-    │   ├── context/AuthContext.tsx# Authentication and session state
-    │   ├── components/            # SyntheticBanner, Navbar, StatCards
-    │   └── pages/                 # Dashboard, Onboarding, AdminUsers, AdminAudit, Health, Bootstrap
-    └── vite.config.ts             # Vite proxy to backend API
-```
+## Project Overview
+BalanceVault provides a clean, trustworthy UI for managing accounts, transfers, and audits. It follows the design tokens defined in `tokens/designTokens.ts` and uses **react‑three‑fiber** for subtle 3D effects.
 
 ---
 
-## 4. Getting Started
+## Prerequisites
+- Node.js **20 LTS** (recommended)
+- Yarn or npm (npm is used in CI/CD)
+- Docker (for building the backend image locally)
+- A **GitHub** account with access to `https://github.com/Akshay-Solmon/BalanceVault`
+- **Vercel** account (free tier works)
+- **Render** account (free starter tier works)
+- **Neon** account (free tier for PostgreSQL)
 
-### Prerequisites
-- Node.js v18+ (tested on Node.js v22)
-- npm or pnpm
+---
 
-### Installation
-From the project root:
+## Local Development
 ```bash
-# 1. Install backend dependencies
-cd backend
-npm install
-npm run db:push
-npm run db:seed
+# Clone the repo (once the remote exists)
+git clone https://github.com/Akshay-Solmon/BalanceVault.git
+cd BalanceVault
 
-# 2. Install frontend dependencies
-cd ../frontend
-npm install
-```
+# Install dependencies for both frontend and backend
+npm ci   # installs root dev dependencies (includes workspace support)
 
-### Running the Application
+# Frontend
+cd frontend
+npm ci
+cp .env.example .env   # fill VITE_API_BASE if needed
+npm run dev            # starts Vite dev server at http://localhost:5173
 
-**Option A: Start Backend and Frontend together**
-From the root directory:
-```bash
-# Start backend (Port 5000)
-npm run dev:backend
-
-# In a separate terminal, start frontend (Port 5173)
-npm run dev:frontend
-```
-
-Open your browser to: [http://localhost:5173](http://localhost:5173)
-
----
-
-## 5. Verifying Milestones M6, M7 & M8
-
-### Verify First-Admin Bootstrap (Milestone M6 & M7)
-Run the dedicated verification CLI:
-```bash
-node scripts/verify_bootstrap.js
-```
-This CLI verifies:
-1. `/health` and `/ready` endpoints.
-2. Controlled bootstrap creation of the initial administrator (`admin.master@balancevault.internal`).
-3. Rejection of duplicate bootstrap attempts (`HTTP 409 Conflict`).
-4. Sign-in and session token generation.
-5. Administrative access to `/api/admin/users` and `/api/admin/audit-logs`.
-
-### Run Comprehensive End-to-End Test Suite (Milestone M8)
-Run the full automated test suite validating all Functional Requirements (FR-1 through FR-18):
-```bash
-npm test
+# Backend
+cd ../backend
+npm ci
+cp .env.example .env   # set DATABASE_URL to your local Neon connection string
+npx prisma migrate dev # apply schema locally
+npm run dev            # starts backend (usually on http://localhost:3000)
 ```
 
 ---
 
-## 6. Pre-Seeded Hackathon Demo Accounts
+## Deployment Guide
+### Frontend – Vercel
+1. **Create a Vercel project** and link it to the GitHub repository.
+2. Vercel automatically detects the `frontend` folder because of the `vercel.json` at the repo root.
+3. **Environment Variables** – add:
+   - `VITE_API_BASE` – URL of the Render backend service (e.g., `https://balancevault-backend.onrender.com/api`).
+4. **Build Settings** – Vercel uses the `@vercel/static-build` builder with `distDir: "frontend/dist"` (defined in `vercel.json`).
+5. Deploy – push to `main/master` and Vercel will run `npm install && npm run build` inside `frontend`.
 
-| Role | Email | Password | Status |
-| :--- | :--- | :--- | :--- |
-| **Platform Administrator** | `admin.master@balancevault.internal` | `VaultAdmin2026!Secure` | Root Admin |
-| **Account Holder (Approved)** | `alice.holder@example.com` | `password123` | Active Account (`$2,500.00`) |
-| **Account Holder (Pending)** | `bob.applicant@example.com` | `password123` | Submitted Onboarding |
+### Backend – Render
+1. **Create a New Service** on Render → **Web Service**.
+2. Choose **Docker** as the runtime.
+3. Point the service to the GitHub repo and set the **Dockerfile path** to `backend/Dockerfile`.
+4. **Environment Variables** – add:
+   - `DATABASE_URL` – Neon connection string (see Neon setup).
+   - `NODE_ENV=production` (optional, Render adds this automatically).
+5. Render will build the Docker image, run migrations (`npx prisma migrate deploy`), and start the app on port `3000`.
+6. After the service is live, note the generated URL (e.g., `https://balancevault-backend.onrender.com`). This is the value for the frontend `VITE_API_BASE`.
+
+### Neon PostgreSQL Setup
+1. Sign in to the **Neon** console and create a new project.
+2. In the project dashboard, copy the **connection string** (it looks like `postgresql://...`).
+3. Add this string as the `DATABASE_URL` environment variable on Render (and locally in `.env`).
+4. Run `npx prisma migrate deploy` on Render (handled automatically by the Dockerfile) or locally with `npx prisma migrate dev`.
 
 ---
 
-## 7. AI Assistance Disclosure
-Per Section 15 of the PRD:
-- Assisted by Antigravity (Google DeepMind pair programming assistant).
-- Built adhering strictly to the Neon least-privilege model, resolving `SQLSTATE 42501` through `SECURITY DEFINER` functions, and implementing complete append-only audit trail immutability.
+## Environment Variables
+| Variable | Where | Description |
+|----------|-------|-------------|
+| `VITE_API_BASE` | Frontend (Vercel) | Base URL for backend API calls |
+| `DATABASE_URL` | Backend (Render) | Neon PostgreSQL connection string |
+| `NODE_ENV` | Backend | Usually `production` |
+
+---
+
+## Scripts
+| Script | Location | Description |
+|--------|----------|-------------|
+| `npm run dev` | `frontend` | Starts Vite dev server |
+| `npm run build` | `frontend` | Produces production assets in `dist/` |
+| `npm start` | `backend` | Starts the compiled backend server |
+| `npm run build` | `backend` | Transpiles TypeScript (if present) |
+| `npx prisma generate` | `backend` | Generates Prisma client |
+| `npx prisma migrate dev` | `backend` | Applies migrations locally |
+| `npx prisma migrate deploy` | `backend` (Docker) | Applies migrations on Render |
+
+---
+
+## Folder Structure
+```
+BalanceVault/
+├─ frontend/               # React app
+│   ├─ src/                # Components, pages, three‑fiber scenes
+│   ├─ public/             # Static assets
+│   ├─ vite.config.ts      # Vite config
+│   └─ vercel.json         # (auto‑picked from root)
+├─ backend/                # API server (Express/Fastify)
+│   ├─ src/                # Controllers, services
+│   ├─ prisma/             # Prisma schema & migrations
+│   ├─ Dockerfile          # Render deployment image
+│   └─ render.yaml         # Optional Render config file
+├─ tokens/                 # Design token definitions
+│   └─ designTokens.ts
+├─ .gitignore
+├─ README.md               # This file
+└─ vercel.json             # Vercel static‑build config
+```
+
+---
+
+## FAQ & Troubleshooting
+**Q:** *My Vercel build fails because it cannot find `frontend/dist`.*
+**A:** Ensure `vercel.json` points to the correct `distDir`. The current config uses `frontend/dist` which matches the default Vite output.
+
+**Q:** *Render shows `DATABASE_URL not set`.*
+**A:** Add the variable in the Render service settings. Use the exact name `DATABASE_URL` and paste the Neon connection string.
+
+**Q:** *Frontend cannot reach the backend (CORS errors).*
+**A:** Add CORS middleware on the backend allowing origin `*` for development or the specific Vercel domain for production.
+
+**Q:** *3D animations are jittery on low‑end devices.*
+**A:** The UI respects `prefers-reduced-motion` – the 3‑D components lazy‑load and fallback to a static gradient when `window.devicePixelRatio > 2` or motion is reduced.
+
+---
+
+*Happy coding! 🎉*

@@ -1,21 +1,28 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../api/client';
-import { Shield, ArrowRight, UserPlus, LogIn, CheckCircle2, AlertCircle } from 'lucide-react';
+import { VaultHero3D } from '../components/3d/VaultHero3D';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Shield, ArrowRight, UserPlus, LogIn, Lock, CheckCircle2, ShieldAlert, Eye } from 'lucide-react';
 
 interface AuthPagesProps {
   initialMode?: 'login' | 'register';
-  onNavigateToBootstrap: () => void;
+  onNavigateToBootstrap?: () => void;
 }
 
-export const AuthPages: React.FC<AuthPagesProps> = ({ initialMode = 'login', onNavigateToBootstrap }) => {
+export const AuthPages: React.FC<AuthPagesProps> = ({
+  initialMode = 'login',
+  onNavigateToBootstrap,
+}) => {
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [legalFullName, setLegalFullName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, switchDemoRole } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,214 +58,306 @@ export const AuthPages: React.FC<AuthPagesProps> = ({ initialMode = 'login', onN
     }
   };
 
-  const fillDemoCreds = (demoType: 'admin' | 'user') => {
-    if (demoType === 'admin') {
+  const fillDemoCreds = (type: 'admin' | 'user' | 'auditor') => {
+    setError(null);
+    if (type === 'admin') {
       setEmail('admin.master@balancevault.internal');
       setPassword('VaultAdmin2026!Secure');
-    } else {
+      setIsLogin(true);
+    } else if (type === 'user') {
       setEmail('alice.holder@example.com');
       setPassword('password123');
+      setIsLogin(true);
+    } else if (type === 'auditor') {
+      switchDemoRole('AUDITOR');
     }
   };
 
   return (
-    <div style={{
-      maxWidth: '460px',
-      margin: '3rem auto',
-      padding: '0 1rem',
-    }}>
-      <div className="card" style={{ padding: '2rem' }}>
-        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{
+    <div
+      style={{
+        maxWidth: '1080px',
+        margin: '2rem auto',
+        padding: '0 1.5rem',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gap: '2.5rem',
+        alignItems: 'center',
+      }}
+    >
+      {/* Left Column: 3D Hero & PRD Value Proposition */}
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+          <VaultHero3D size={280} />
+        </div>
+
+        <div
+          style={{
             display: 'inline-flex',
-            padding: '0.75rem',
-            background: 'rgba(2, 132, 199, 0.15)',
-            borderRadius: '12px',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
-            marginBottom: '0.75rem',
-          }}>
-            <Shield size={32} color="#38bdf8" />
-          </div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f8fafc' }}>
-            {isLogin ? 'Sign In to BalanceVault' : 'Register Account'}
-          </h2>
-          <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-            {isLogin 
-              ? 'Access your provable ledger and auditable operations'
-              : 'Create a synthetic demo account to test onboarding & money movement'}
-          </p>
-        </div>
-
-        {/* Tab Toggle */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          background: '#090d16',
-          padding: '0.25rem',
-          borderRadius: '8px',
-          border: '1px solid #1e293b',
-          marginBottom: '1.5rem',
-        }}>
-          <button
-            type="button"
-            onClick={() => { setIsLogin(true); setError(null); }}
-            style={{
-              padding: '0.5rem',
-              borderRadius: '6px',
-              border: 'none',
-              background: isLogin ? '#1e293b' : 'transparent',
-              color: isLogin ? '#38bdf8' : '#94a3b8',
-              fontWeight: 600,
-              fontSize: '0.85rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.35rem',
-            }}
-          >
-            <LogIn size={14} /> Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIsLogin(false); setError(null); }}
-            style={{
-              padding: '0.5rem',
-              borderRadius: '6px',
-              border: 'none',
-              background: !isLogin ? '#1e293b' : 'transparent',
-              color: !isLogin ? '#38bdf8' : '#94a3b8',
-              fontWeight: 600,
-              fontSize: '0.85rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.35rem',
-            }}
-          >
-            <UserPlus size={14} /> Register
-          </button>
-        </div>
-
-        {error && (
-          <div style={{
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid #ef4444',
-            padding: '0.75rem',
-            borderRadius: '8px',
-            marginBottom: '1.25rem',
-            display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem',
-            color: '#fca5a5',
-            fontSize: '0.85rem',
-          }}>
-            <AlertCircle size={16} color="#ef4444" style={{ flexShrink: 0 }} />
-            <span>{error}</span>
-          </div>
-        )}
+            gap: '0.4rem',
+            padding: '0.25rem 0.75rem',
+            backgroundColor: 'rgba(79, 140, 255, 0.12)',
+            borderRadius: 'var(--radius-full)',
+            border: '1px solid rgba(79, 140, 255, 0.3)',
+            color: 'var(--color-primary)',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            marginBottom: '0.75rem',
+          }}
+        >
+          <Shield size={14} /> Tamper-Proof Cryptographic Vault
+        </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {!isLogin && (
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.35rem' }}>
-                Full Legal Name / Entity Name
-              </label>
-              <input
-                type="text"
-                required
-                value={legalFullName}
-                onChange={(e) => setLegalFullName(e.target.value)}
-                placeholder="e.g. Jane Doe or Demo Corp"
-                className="input-field"
-              />
+        <h1
+          style={{
+            fontSize: '2rem',
+            fontWeight: 700,
+            lineHeight: 1.2,
+            letterSpacing: '-0.02em',
+            color: 'var(--color-text-primary)',
+            marginBottom: '0.75rem',
+          }}
+        >
+          Money movement with a ledger you can prove.
+        </h1>
+
+        <p
+          style={{
+            fontSize: '0.9375rem',
+            color: 'var(--color-text-muted)',
+            lineHeight: 1.6,
+            maxWidth: '440px',
+            margin: '0 auto 1.5rem',
+          }}
+        >
+          Balance conservation on every route, zero-drift double-entry postings, and atomic balance floors backed by append-only hash chains.
+        </p>
+
+        {/* 1-Click Role Switcher Demo Helpers */}
+        <div
+          style={{
+            backgroundColor: 'var(--color-surface)',
+            border: '1px solid var(--color-surface-border)',
+            borderRadius: 'var(--radius-md)',
+            padding: '1rem',
+            maxWidth: '420px',
+            margin: '0 auto',
+            textAlign: 'left',
+          }}
+        >
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
+            Quick Demo Persona Fill:
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => fillDemoCreds('user')}
+            >
+              Account Holder
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => fillDemoCreds('admin')}
+            >
+              Administrator
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => fillDemoCreds('auditor')}
+              leftIcon={<Eye size={13} color="var(--color-warning)" />}
+            >
+              Auditor (Read-Only)
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Column: Authentication Card */}
+      <div>
+        <Card variant="elevated" style={{ padding: '2rem', maxWidth: '440px', margin: '0 auto' }}>
+          {/* Header */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+              <div
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'rgba(79, 140, 255, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {isLogin ? <LogIn size={16} color="var(--color-primary)" /> : <UserPlus size={16} color="var(--color-secondary)" />}
+              </div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                {isLogin ? 'Sign In to BalanceVault' : 'Register Demo Account'}
+              </h2>
+            </div>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+              {isLogin
+                ? 'Enter your credentials to access your verified ledger.'
+                : 'Open an account holder demo identity for testing.'}
+            </p>
+          </div>
+
+          {/* Tab Selector */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              backgroundColor: 'var(--color-bg-base)',
+              padding: '0.25rem',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-surface-border)',
+              marginBottom: '1.25rem',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => { setIsLogin(true); setError(null); }}
+              style={{
+                padding: '0.45rem',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: isLogin ? 'var(--color-surface)' : 'transparent',
+                color: isLogin ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                boxShadow: isLogin ? 'var(--shadow-card)' : 'none',
+                transition: 'all var(--transition-fast)',
+              }}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsLogin(false); setError(null); }}
+              style={{
+                padding: '0.45rem',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: !isLogin ? 'var(--color-surface)' : 'transparent',
+                color: !isLogin ? 'var(--color-secondary)' : 'var(--color-text-muted)',
+                boxShadow: !isLogin ? 'var(--shadow-card)' : 'none',
+                transition: 'all var(--transition-fast)',
+              }}
+            >
+              Register
+            </button>
+          </div>
+
+          {/* Error Banner */}
+          {error && (
+            <div
+              role="alert"
+              style={{
+                backgroundColor: 'rgba(255, 92, 122, 0.1)',
+                border: '1px solid var(--color-danger)',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.75rem',
+                fontSize: '0.8125rem',
+                color: 'var(--color-danger)',
+                marginBottom: '1.25rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.5rem',
+              }}
+            >
+              <Lock size={16} style={{ flexShrink: 0, marginTop: '0.125rem' }} />
+              <div>{error}</div>
             </div>
           )}
 
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.35rem' }}>
-              Email Address
-            </label>
-            <input
+          {/* Form */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {!isLogin && (
+              <Input
+                label="Legal Full Name"
+                value={legalFullName}
+                onChange={(e) => setLegalFullName(e.target.value)}
+                placeholder="e.g. Alice Smith"
+                required
+              />
+            )}
+
+            <Input
+              label="Email Address"
               type="email"
-              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-              className="input-field"
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.35rem' }}>
-              Password
-            </label>
-            <input
-              type="password"
+              placeholder="name@domain.com"
               required
-              minLength={8}
+            />
+
+            <Input
+              label="Password"
+              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Minimum 8 characters"
-              className="input-field"
+              placeholder="••••••••••••"
+              helperText={!isLogin ? 'Minimum 8 characters required' : undefined}
+              required
             />
-          </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary"
-            style={{ marginTop: '0.5rem', width: '100%' }}
-          >
-            {loading ? 'Authenticating...' : isLogin ? 'Sign In' : 'Create Account'}
-            <ArrowRight size={16} />
-          </button>
-        </form>
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              isLoading={loading}
+              loadingText={isLogin ? 'Verifying Credentials...' : 'Creating Account...'}
+              rightIcon={<ArrowRight size={16} />}
+              style={{ marginTop: '0.5rem', width: '100%' }}
+            >
+              {isLogin ? 'Sign In' : 'Create Demo Account'}
+            </Button>
+          </form>
 
-        {/* Demo Fast-Fill Helper */}
-        {isLogin && (
-          <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid #1e293b' }}>
-            <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.5rem', textAlign: 'center' }}>
-              Quick Fill Hackathon Demo Accounts:
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+          {/* Footer with Bootstrap Link */}
+          {onNavigateToBootstrap && (
+            <div
+              style={{
+                marginTop: '1.5rem',
+                paddingTop: '1rem',
+                borderTop: '1px solid var(--color-surface-border)',
+                textAlign: 'center',
+                fontSize: '0.75rem',
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              First time setup?{' '}
               <button
                 type="button"
-                onClick={() => fillDemoCreds('user')}
-                className="btn-secondary"
-                style={{ fontSize: '0.75rem', padding: '0.35rem 0.5rem' }}
+                onClick={onNavigateToBootstrap}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-primary)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  padding: 0,
+                }}
               >
-                Alice (Account Holder)
-              </button>
-              <button
-                type="button"
-                onClick={() => fillDemoCreds('admin')}
-                className="btn-secondary"
-                style={{ fontSize: '0.75rem', padding: '0.35rem 0.5rem' }}
-              >
-                Platform Admin
+                Bootstrap Initial Administrator
               </button>
             </div>
-          </div>
-        )}
-
-        {/* First Admin Bootstrap Link */}
-        <div style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.8rem', color: '#64748b' }}>
-          Need to configure the first administrator?{' '}
-          <button
-            type="button"
-            onClick={onNavigateToBootstrap}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#38bdf8',
-              fontWeight: 600,
-              textDecoration: 'underline',
-              padding: 0,
-            }}
-          >
-            Open Admin Bootstrap Wizard
-          </button>
-        </div>
+          )}
+        </Card>
       </div>
     </div>
   );

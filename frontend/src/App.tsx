@@ -1,43 +1,70 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './context/ToastContext';
+import { ToastContainer } from './components/ui/Toast';
 import { SyntheticBanner } from './components/SyntheticBanner';
-import { Navbar } from './components/Navbar';
+import { Navbar } from './components/layout/Navbar';
+
+// Pages
 import { AuthPages } from './pages/AuthPages';
 import { DashboardPage } from './pages/DashboardPage';
+import { MoneyMovementsPage } from './pages/MoneyMovementsPage';
+import { StatementPage } from './pages/StatementPage';
+import { AdminConsolePage } from './pages/AdminConsolePage';
+import { AuditorPage } from './pages/AuditorPage';
+import { LedgerIntegrityPage } from './pages/LedgerIntegrityPage';
 import { OnboardingPage } from './pages/OnboardingPage';
-import { AdminUsersPage } from './pages/AdminUsersPage';
-import { AdminAuditPage } from './pages/AdminAuditPage';
-import { SystemHealthPage } from './pages/SystemHealthPage';
 import { BootstrapPage } from './pages/BootstrapPage';
-import { RefreshCw } from 'lucide-react';
+import { SystemHealthPage } from './pages/SystemHealthPage';
+
+import { Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { user, isLoading, isAdmin } = useAuth();
+  const { user, isLoading, isAdmin, isAuditor } = useAuth();
   const [currentView, setCurrentView] = useState<string>('dashboard');
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <RefreshCw size={32} color="#38bdf8" className="animate-spin" style={{ marginBottom: '1rem' }} />
-        <div style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Initializing BalanceVault Secure Subsystem...</div>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          backgroundColor: 'var(--color-bg-base)',
+        }}
+      >
+        <Loader2 size={36} color="var(--color-primary)" className="animate-spin" style={{ marginBottom: '1rem', animation: 'spin 1s linear infinite' }} />
+        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', fontFamily: 'var(--font-mono)' }}>
+          Initializing BalanceVault Secure Subsystem...
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: 'var(--color-bg-base)',
+        color: 'var(--color-text-primary)',
+        transition: 'background-color var(--transition-normal)',
+      }}
+    >
       <SyntheticBanner />
       <Navbar currentView={currentView} setCurrentView={setCurrentView} />
 
       <main style={{ flex: 1, paddingBottom: '3rem' }}>
-        {/* If user is not authenticated and not on special public pages like bootstrap/health */}
+        {/* Unauthenticated View */}
         {!user && currentView !== 'bootstrap' && currentView !== 'health' && (
-          <AuthPages 
-            onNavigateToBootstrap={() => setCurrentView('bootstrap')} 
-          />
+          <AuthPages onNavigateToBootstrap={() => setCurrentView('bootstrap')} />
         )}
 
-        {/* Public or Dedicated Bootstrap Wizard */}
+        {/* Public Bootstrap Wizard */}
         {currentView === 'bootstrap' && (
           <BootstrapPage
             onSuccess={() => setCurrentView('dashboard')}
@@ -46,38 +73,75 @@ const AppContent: React.FC = () => {
         )}
 
         {/* Health Probe Monitor */}
-        {currentView === 'health' && (
-          <SystemHealthPage />
+        {currentView === 'health' && <SystemHealthPage />}
+
+        {/* Authenticated Pages */}
+        {user && currentView === 'dashboard' && (
+          <DashboardPage
+            onNavigateToMoneyMovements={() => setCurrentView('money-movements')}
+            onNavigateToStatement={() => setCurrentView('statement')}
+            onNavigateToOnboarding={() => setCurrentView('onboarding')}
+          />
         )}
 
-        {/* Authenticated Views */}
-        {user && currentView === 'dashboard' && (
-          <DashboardPage onNavigateToOnboarding={() => setCurrentView('onboarding')} />
+        {user && currentView === 'money-movements' && !isAuditor && (
+          <MoneyMovementsPage onNavigateToDashboard={() => setCurrentView('dashboard')} />
+        )}
+
+        {user && currentView === 'statement' && (
+          <StatementPage />
+        )}
+
+        {user && currentView === 'ledger-integrity' && (
+          <LedgerIntegrityPage />
         )}
 
         {user && currentView === 'onboarding' && (
           <OnboardingPage />
         )}
 
-        {/* Protected Admin Views */}
-        {user && isAdmin && currentView === 'admin-users' && (
-          <AdminUsersPage />
+        {/* Protected Admin Console */}
+        {user && isAdmin && currentView === 'admin-console' && (
+          <AdminConsolePage />
         )}
 
-        {user && isAdmin && currentView === 'admin-audit' && (
-          <AdminAuditPage />
+        {/* Auditor View (Auditor or Admin) */}
+        {user && (isAuditor || isAdmin) && currentView === 'auditor-view' && (
+          <AuditorPage />
         )}
       </main>
 
-      <footer style={{
-        borderTop: '1px solid #1e293b',
-        padding: '1rem',
-        textAlign: 'center',
-        fontSize: '0.75rem',
-        color: '#64748b',
-        backgroundColor: '#090d16',
-      }}>
-        BalanceVault v0.1 | Money movement with a ledger you can prove | Hackathon Demonstration Build
+      <ToastContainer />
+
+      <footer
+        style={{
+          borderTop: '1px solid var(--color-surface-border)',
+          padding: '1.25rem 1.5rem',
+          textAlign: 'center',
+          fontSize: '0.75rem',
+          color: 'var(--color-text-muted)',
+          backgroundColor: 'var(--color-surface)',
+        }}
+      >
+        <div style={{ maxWidth: '1240px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            BalanceVault v1.0 • Money movement with a ledger you can prove • LedgerLine Hackathon
+          </div>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <span
+              onClick={() => setCurrentView('health')}
+              style={{ cursor: 'pointer', color: 'var(--color-primary)' }}
+            >
+              System Health
+            </span>
+            <span
+              onClick={() => setCurrentView('ledger-integrity')}
+              style={{ cursor: 'pointer', color: 'var(--color-primary)' }}
+            >
+              Hash Chain Status
+            </span>
+          </div>
+        </div>
       </footer>
     </div>
   );
@@ -85,8 +149,12 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
