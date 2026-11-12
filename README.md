@@ -1,6 +1,9 @@
 # BalanceVault
 
-A modern fintech web app built with React, TypeScript, and Three.js. The frontend is deployed to **Vercel** and the backend runs on **Render**, backed by a **Neon PostgreSQL** database.
+A modern fintech web app built with React, TypeScript, and Three.js.
+
+🌐 **Live Frontend:** https://balance-vault-three.vercel.app  
+🔌 **Live Backend API:** https://balancevault-backend-0mlz.onrender.com
 
 ---
 

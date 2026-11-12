@@ -1,14 +1,11 @@
 {
-  "builds": [
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "frontend/dist"
-      }
-    }
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
-  "routes": [
-    { "src": "/(.*)", "dest": "/frontend/$1" }
-  ]
+  "env": {
+    "VITE_API_BASE": "https://balancevault-backend-0mlz.onrender.com"
+  }
 }
